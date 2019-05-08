@@ -88,8 +88,8 @@ Module picDropMDL
             ScaricaAncheSeGiaScaricata = False
         End If
 
-        If DirBase = "" Then
-            Dim Errore As Boolean = False
+        'If DirBase = "" Then
+        Dim Errore As Boolean = False
 
             Try
                 DirBase = Cartelle(0)
@@ -100,7 +100,7 @@ Module picDropMDL
             Catch ex As Exception
                 Errore = True
             End Try
-        End If
+        'End If
 
         LeggeTags()
 

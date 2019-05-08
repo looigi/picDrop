@@ -260,10 +260,10 @@ Public Class frmMain
             Dim Ritorno As Integer = SistemaFileScaricato(sNomeFile, lblDimensioni, varConnessione, conn, Url, NomeSito, Resto, Me)
         Else
             Me.BackgroundImage = Image.FromFile("Icone\icona_ELIMINA-TAG.png")
-            tmrDownload.Enabled = True
-            tmrControllo.Enabled = False
         End If
-            
+        tmrDownload.Enabled = True
+        tmrControllo.Enabled = False
+
         Try
             File.Delete("Links\Appoggio.jpg")
         Catch ex As Exception
