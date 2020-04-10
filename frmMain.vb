@@ -171,8 +171,10 @@ Public Class frmMain
         End If
 
         Try
-            Me.BackgroundImage.Dispose()
-            Me.BackgroundImage = Nothing
+            If Not Me.BackgroundImage Is Nothing Then
+                Me.BackgroundImage.Dispose()
+                Me.BackgroundImage = Nothing
+            End If
         Catch ex As Exception
 
         End Try
