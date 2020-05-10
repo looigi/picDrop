@@ -83,7 +83,7 @@ Partial Class frmMain
 		'tmrBackup
 		'
 		Me.tmrBackup.Enabled = True
-		Me.tmrBackup.Interval = 1000
+		Me.tmrBackup.Interval = 60000
 		'
 		'frmMain
 		'

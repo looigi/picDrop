@@ -1475,7 +1475,7 @@ Public Class frmMain
         Next
     End Sub
 
-    Private MinutiPerBackup As Integer = 10
+    Private MinutiPerBackup As Integer = 60
     Private MinutiAttualiPerBackup As Integer = 0
 
     Private Sub tmrBackup_Tick(sender As Object, e As EventArgs) Handles tmrBackup.Tick
