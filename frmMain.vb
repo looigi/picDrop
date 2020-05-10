@@ -1167,8 +1167,10 @@ Public Class frmMain
         'g = Nothing
 
         Try
-            Me.BackgroundImage.Dispose()
-            Me.BackgroundImage = Nothing
+            If Not Me.BackgroundImage Is Nothing Then
+                Me.BackgroundImage.Dispose()
+                Me.BackgroundImage = Nothing
+            End If
         Catch ex As Exception
 
         End Try
@@ -1471,5 +1473,73 @@ Public Class frmMain
                 BottoniDirs(i).BackColor = Color.LightGray
             End If
         Next
+    End Sub
+
+    Private MinutiPerBackup As Integer = 10
+    Private MinutiAttualiPerBackup As Integer = 0
+
+    Private Sub tmrBackup_Tick(sender As Object, e As EventArgs) Handles tmrBackup.Tick
+        MinutiAttualiPerBackup += 1
+        If MinutiAttualiPerBackup >= MinutiPerBackup Then
+            tmrBackup.Enabled = False
+            MinutiAttualiPerBackup = 0
+
+            ChiudeConnessione()
+
+            Dim PathDB As String = Application.StartupPath & "\DB\picDrop.sdf"
+
+            Dim Giorno As String = Format(Now.Date, "dddd").Substring(0, 3).ToUpper
+
+            varConnessione = New SQLSERVERCE
+            varConnessione.ImpostaNomeDB(Application.StartupPath & "\DB\picDrop.sdf")
+            varConnessione.LeggeImpostazioniDiBase()
+            conn = varConnessione.ApreDB()
+
+            Dim Ok As Boolean = False
+
+            If Not conn Is Nothing Then
+                Ok = True
+            End If
+
+            conn.Close()
+            varConnessione = Nothing
+
+            If Ok Then
+                Dim dataFile1 As DateTime = Now.Date
+                Dim dataFile2 As DateTime = Now.Date
+
+                If File.Exists(Application.StartupPath & "\DB\picDrop.sdf") Then
+                    dataFile1 = FileDateTime(Application.StartupPath & "\DB\picDrop.sdf")
+                End If
+                If File.Exists(Application.StartupPath & "\DB\picDrop_Backup_" & Giorno & ".sdf") Then
+                    dataFile2 = FileDateTime(Application.StartupPath & "\DB\picDrop_Backup_" & Giorno & ".sdf")
+                End If
+
+                If dataFile1 <> dataFile2 Then
+                    Dim fileLen1 As Long = 0
+                    Dim fileLen2 As Long = 0
+
+                    If File.Exists(Application.StartupPath & "\DB\picDrop.sdf") Then
+                        fileLen1 = FileLen(Application.StartupPath & "\DB\picDrop.sdf")
+                    End If
+                    If File.Exists(Application.StartupPath & "\DB\picDrop_Backup_" & Giorno & ".sdf") Then
+                        fileLen2 = FileLen(Application.StartupPath & "\DB\picDrop_Backup_" & Giorno & ".sdf")
+                    End If
+
+                    If fileLen1 <> fileLen2 Then
+                        Try
+                            Kill(Application.StartupPath & "\DB\picDrop_Backup_" & Giorno & ".sdf")
+                        Catch ex As Exception
+
+                        End Try
+
+                        File.Copy(Application.StartupPath & "\DB\picDrop.sdf", Application.StartupPath & "\DB\picDrop_Backup_" & Giorno & ".sdf")
+                    End If
+                End If
+            End If
+
+            ApreConnessione()
+            tmrBackup.Enabled = True
+        End If
     End Sub
 End Class

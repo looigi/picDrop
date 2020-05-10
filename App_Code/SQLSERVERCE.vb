@@ -37,6 +37,7 @@
             Conn.Open(Connessione)
             Conn.CommandTimeout = 0
         Catch ex As Exception
+            Conn = Nothing
             MsgBox("APERTURA DB: " & ex.Message)
         End Try
 
