@@ -182,7 +182,8 @@ Public Class frmRicerca
         Dim Pagina As Integer = Val(txtInizio.Text)
 
         For conta As Integer = 1 To Val(txtPagine.Text) - Val(txtInizio.Text)
-            Dim Ricerca As String = "https://www.bing.com/images/search?q=" & txtFiltro.Text.Replace(" ", "%20") & "&qs=n&form=QBLH&scope=images&sp=-1&pq=" & txtFiltro.Text.Replace(" ", "%20") & "&sc=8-5&sk=&cvid=C713FE68173A4CD3993A58C7F868EDE4&first=" & Inizio & "&count=28&FORM=IBASEP"
+            ' Dim Ricerca As String = "https://www.bing.com/images/search?q=" & txtFiltro.Text.Replace(" ", "%20") & "&qs=n&form=QBLH&scope=images&sp=-1&pq=" & txtFiltro.Text.Replace(" ", "%20") & "&sc=8-5&sk=&cvid=C713FE68173A4CD3993A58C7F868EDE4&first=" & Inizio & "&count=28&FORM=IBASEP"
+            Dim Ricerca As String = "https://www.bing.com/images/search?q=" & txtFiltro.Text.Replace(" ", "%20") & "&qs=n&form=IBASEP&scope=images&sp=-1&pq=" & txtFiltro.Text.Replace(" ", "%20") & "&sc=8-5&cvid=C713FE68173A4CD3993A58C7F868EDE4&first=" & Inizio & "&count=28&cw=1663&ch=907&tsc=ImageBasicHover"
 
             lblPagina.Text = "Pagina " & Pagina & "/" & txtPagine.Text
             Pagina += 1
@@ -230,6 +231,32 @@ Public Class frmRicerca
         Me.Cursor = Cursors.Default
     End Sub
 
+    Private Function ConverteSourceCode(s) As String
+        Dim Rit As String = s
+        Dim tutte = "0123456789ABCDEF"
+        Dim perc As Integer = Rit.IndexOf("%")
+
+        Do While perc > -1
+            Dim a As String = Mid(Rit, perc + 1, 3)
+            Dim car As String = ""
+
+            If tutte.IndexOf(Mid(a, 2, 1).ToUpper) > -1 And tutte.IndexOf(Mid(a, 3, 1).ToUpper) > -1 Then
+                car = Mid(a, 2, 2)
+                Dim h1 As Integer = CInt("&H" & car)
+                car = Chr(h1)
+                'Stop
+            Else
+                car = "-"
+            End If
+            Rit = Rit.Replace(a, car)
+
+            perc = Rit.IndexOf("%")
+        Loop
+        Rit = Rit.Replace("&quot;", Chr(34))
+
+        Return Rit
+    End Function
+
     Private Sub ScaricaPagina(varConnessione As SQLSERVERCE, conn As Object, Url As String)
         Dim sNomeFile As String = "Links\AppoggioRicerca.html"
         Dim gf As New GestioneFilesDirectory
@@ -263,6 +290,7 @@ Public Class frmRicerca
             End If
 
             sourcecode = gf.LeggeFileIntero(sNomeFile)
+            sourcecode = ConverteSourceCode(sourcecode)
 
             Dim a As Long
             Dim Appoggio As String
