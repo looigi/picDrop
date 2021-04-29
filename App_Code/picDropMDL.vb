@@ -385,35 +385,39 @@ Module picDropMDL
                     estOk = True
             End Select
 
-            'If Url.ToUpper.Contains("WWW.MSN.COM") And Not estOk Then
-            If Not estOk And Not Url.ToUpper.Contains("HTTPS://WWW.BING.COM") Then
-                Dim iMessage As CDO.Message = New CDO.Message
-                iMessage.CreateMHTMLBody(Url, _
+            Try
+                'If Url.ToUpper.Contains("WWW.MSN.COM") And Not estOk Then
+                If Not estOk And Not Url.ToUpper.Contains("HTTPS://WWW.BING.COM") Then
+                    Dim iMessage As CDO.Message = New CDO.Message
+                    iMessage.CreateMHTMLBody(Url,
                 CDO.CdoMHTMLFlags.cdoSuppressNone, "", "")
-                Dim adodbstream As ADODB.Stream = New ADODB.Stream
-                adodbstream.Type = ADODB.StreamTypeEnum.adTypeText
-                adodbstream.Charset = "US-ASCII"
-                adodbstream.Open()
-                iMessage.DataSource.SaveToObject(adodbstream, "_Stream")
-                adodbstream.SaveToFile(sNomeFile, ADODB.SaveOptionsEnum.adSaveCreateOverWrite)
-            Else
-                Dim wb As New WebClient
-                Dim Uri As New Uri(Url.Replace(" ", "%20"))
-                AddHandler wb.DownloadFileCompleted, AddressOf Completed
-                AddHandler wb.DownloadProgressChanged, AddressOf Scaricando
-                Application.DoEvents()
-
-                frmMain.pbDownload.Value = 0
-                frmMain.pbDownload.Visible = True
-                wb.CachePolicy = New RequestCachePolicy(RequestCacheLevel.NoCacheNoStore)
-                wb.DownloadFileAsync(Uri, sNomeFile)
-                Application.DoEvents()
-
-                Do While StaScaricando = True
+                    Dim adodbstream As ADODB.Stream = New ADODB.Stream
+                    adodbstream.Type = ADODB.StreamTypeEnum.adTypeText
+                    adodbstream.Charset = "US-ASCII"
+                    adodbstream.Open()
+                    iMessage.DataSource.SaveToObject(adodbstream, "_Stream")
+                    adodbstream.SaveToFile(sNomeFile, ADODB.SaveOptionsEnum.adSaveCreateOverWrite)
+                Else
+                    Dim wb As New WebClient
+                    Dim Uri As New Uri(Url.Replace(" ", "%20"))
+                    AddHandler wb.DownloadFileCompleted, AddressOf Completed
+                    AddHandler wb.DownloadProgressChanged, AddressOf Scaricando
                     Application.DoEvents()
-                Loop
-                frmMain.pbDownload.Visible = False
-            End If
+
+                    frmMain.pbDownload.Value = 0
+                    frmMain.pbDownload.Visible = True
+                    wb.CachePolicy = New RequestCachePolicy(RequestCacheLevel.NoCacheNoStore)
+                    wb.DownloadFileAsync(Uri, sNomeFile)
+                    Application.DoEvents()
+
+                    Do While StaScaricando = True
+                        Application.DoEvents()
+                    Loop
+                    frmMain.pbDownload.Visible = False
+                End If
+            Catch ex As Exception
+
+            End Try
 
             ' If Url.ToUpper.Contains("MSN.COM/C.GIF?") Then
             'Dim sUrl As String = Url
