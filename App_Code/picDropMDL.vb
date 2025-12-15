@@ -12,7 +12,7 @@ Module picDropMDL
     Public Cartelle() As String
     Public Nomi() As String
     Public DirBase As String
-    Public NomeDirBase As String
+    ' Public NomeDirBase As String
     Public numFiles As Long
     Public totKBytes As Long
     Public CreaLog As Boolean
@@ -24,7 +24,7 @@ Module picDropMDL
     Public idTag() As Integer
     Public QuantiTag As Integer
     Public StaScaricando As Boolean
-    Public BottoniDirs() As Button
+    ' Public BottoniDirs() As Button
     Public Rimanenti As Integer
     Public StavaScaricando As Boolean
     Public Visibile As Boolean
@@ -40,6 +40,8 @@ Module picDropMDL
     Public CaratteriStop2() As String = {Chr(34), "'", ">", ";", ")", "(", "<", "{", "}"}
     Public FilesImmagini() As String = {"CID:", ".JPG", ".JPEG", ".PNG", ".BMP", ".GIF", ".PCX", ".IMG?H"}
     Public Filesvideo() As String = {".ZIP", ".RAR", ".MP4", ".WMV", ".3GP", ".MKV", ".AVI", ".SWV", ".MP3", ".MPG", ".MPEG"}
+    Public pagineHtml As List(Of String)
+    Public qualePagina As Integer = 0
 
     Public Sub LeggeSettaggi()
         LeggeCartelle()
@@ -50,7 +52,7 @@ Module picDropMDL
         Dominio = GetSetting("picDrop", "Settaggi", "Dominio")
         DirBase = GetSetting("picDrop", "Settaggi", "DirBase")
 
-        NomeDirBase = GetSetting("picDrop", "Settaggi", "NomeDirBase")
+        'NomeDirBase = GetSetting("picDrop", "Settaggi", "NomeDirBase")
 
         If GetSetting("picDrop", "Settaggi", "Log") = "False" Then
             CreaLog = False
@@ -91,15 +93,15 @@ Module picDropMDL
         'If DirBase = "" Then
         Dim Errore As Boolean = False
 
-            Try
-                DirBase = Cartelle(0)
-                NomeDirBase = Nomi(0)
+        'Try
+        '    DirBase = Cartelle(0)
+        '    NomeDirBase = Nomi(0)
 
-                SaveSetting("picDrop", "Settaggi", "NomeDirBase", NomeDirBase)
-                SaveSetting("picDrop", "Settaggi", "DirBase", DirBase)
-            Catch ex As Exception
-                Errore = True
-            End Try
+        '    SaveSetting("picDrop", "Settaggi", "NomeDirBase", NomeDirBase)
+        '    SaveSetting("picDrop", "Settaggi", "DirBase", DirBase)
+        'Catch ex As Exception
+        '    Errore = True
+        'End Try
         'End If
 
         LeggeTags()
@@ -235,6 +237,38 @@ Module picDropMDL
         Return Ritorno
     End Function
 
+    Public Function ControllaSeCiSonoSiti(Cosa As String) As List(Of String)
+        Dim Appoggio As String = Cosa.Replace("3D" & Chr(34), "")
+        Dim Ritorno As Long = -1
+        Dim Lista As New List(Of String)
+        Dim Cose As String = Chr(34) & "'> "
+
+        While Appoggio.Contains("href=")
+            Dim a As Long = Appoggio.IndexOf("href=")
+            Dim Appo As String = Mid(Appoggio, a + 6, Appoggio.Length)
+            For i As Integer = 1 To Cose.Length
+                Dim Car As String = Mid(Cose, i, 1)
+                If Mid(Appo, 1, 1) = Car Then
+                    Appo = Mid(Appo, 2, Appo.Length)
+                End If
+
+                Dim b As Integer = Appo.IndexOf(Car)
+                If b > -1 Then
+                    Appo = Mid(Appo, 1, b - 1)
+                    If Not Lista.Contains(Appo) Then
+                        Lista.Add(Appo)
+                    End If
+                    Appoggio = Mid(Appoggio, 1, a - 1) & Mid(Appoggio, a + 6, Appoggio.Length)
+                    Exit For
+                Else
+                    Appoggio = Mid(Appoggio, 1, a - 1) & Mid(Appoggio, a + 6, Appoggio.Length)
+                End If
+            Next
+        End While
+
+        Return Lista
+    End Function
+
     Public Function ControllaSeCiSonoImmagini(Cosa As String) As Long
         Dim Ritorno As Long = -1
 
@@ -340,17 +374,17 @@ Module picDropMDL
             End If
 
             Dim d As String = Now.Year & Now.Month & Now.Day & Now.Hour & Now.Minute & Now.Second & ".jpg"
-            Dim sNomeFileDaSalvare As String = "Links\DaMSN\" & d
+            Dim sNomeFileDaSalvare As String = Application.StartupPath & "\Links\DaMSN\" & d
 
             Try
                 ScaricaFileGlobale("http:" & Appoggio, sNomeFileDaSalvare, varConnessione, conn)
+
+                If File.Exists(sNomeFileDaSalvare) Then
+                    Dim Ritorno As Integer = SistemaFileScaricato(sNomeFileDaSalvare, Nothing, varConnessione, conn, "http:" & Appoggio, "DaMSN", {"DaPHP", "MSN.COM"}, Nothing)
+                End If
             Catch ex As Exception
 
             End Try
-
-            If File.Exists(sNomeFileDaSalvare) Then
-                Dim Ritorno As Integer = SistemaFileScaricato(sNomeFileDaSalvare, Nothing, varConnessione, conn, "http:" & Appoggio, "DaMSN", {"DaPHP", "MSN.COM"}, Nothing)
-            End If
 
             sourcecode = sourcecode.Replace(Cambia, "")
 
@@ -390,7 +424,7 @@ Module picDropMDL
                 If Not estOk And Not Url.ToUpper.Contains("HTTPS://WWW.BING.COM") Then
                     Dim iMessage As CDO.Message = New CDO.Message
                     iMessage.CreateMHTMLBody(Url,
-                CDO.CdoMHTMLFlags.cdoSuppressNone, "", "")
+                        CDO.CdoMHTMLFlags.cdoSuppressNone, "", "")
                     Dim adodbstream As ADODB.Stream = New ADODB.Stream
                     adodbstream.Type = ADODB.StreamTypeEnum.adTypeText
                     adodbstream.Charset = "US-ASCII"
@@ -438,6 +472,7 @@ Module picDropMDL
 
             If File.Exists(sNomeFile) Then
                 Dim a As Integer = FileLen(sNomeFile)
+
                 If a = 0 Then
                     Try
                         Kill(sNomeFile)
@@ -452,9 +487,10 @@ Module picDropMDL
     Public Sub GestisceImmagineInline(sourcecode As String, Appoggio As String)
         Dim sNomeFileInline As String = Mid(Appoggio, 5, Appoggio.Length)
         Dim a As Long
-        Dim Inizio As Long
-        Dim Fine As Long
+        Dim Inizio As Long = -1
+        Dim Fine As Long = -1
         Dim gf As New GestioneFilesDirectory
+        Dim Scaricata As Boolean = False
 
         Appoggio = "Content-ID: <" & Mid(Appoggio, 5, Appoggio.Length) & ">"
         a = sourcecode.IndexOf(Appoggio)
@@ -480,7 +516,6 @@ Module picDropMDL
             Appoggio = Mid(Appoggio, 1, Appoggio.IndexOf("------=_NextPart"))
 
             Dim Righe() As String = Appoggio.Split(Chr(10))
-
             Appoggio = ""
             If Righe.Length > 4 Then
                 Try
@@ -495,6 +530,8 @@ Module picDropMDL
                                 Dim fs As New FileStream("Links\Scaricate\" & sNomeFileInline & ".jpg", FileMode.Append)
                                 fs.Write(B, 0, B.Length)
                                 fs.Close()
+
+                                Scaricata = True
                             End If
                         End If
                     Next
@@ -505,6 +542,35 @@ Module picDropMDL
         End If
 
         gf = Nothing
+
+        If Scaricata Then
+            If ScartaPiccole Then
+                Dim bt As System.Drawing.Bitmap
+                bt = CaricaImmagine("Links\Scaricate\" & sNomeFileInline & ".jpg")
+                Application.DoEvents()
+
+                If bt Is Nothing Then
+                    Try
+                        Kill("Links\Scaricate\" & sNomeFileInline & ".jpg")
+                    Catch ex As Exception
+
+                    End Try
+                Else
+                    Dim w As Integer = bt.Width
+                    Dim h As Integer = bt.Height
+
+                    bt.Dispose()
+                    bt = Nothing
+                    If w < 200 Or h < 200 Then
+                        Try
+                            Kill("Links\Scaricate\" & sNomeFileInline & ".jpg")
+                        Catch ex As Exception
+
+                        End Try
+                    End If
+                End If
+            End If
+        End If
     End Sub
 
     Private Sub GestionePHP(Url As String, sNomeFile As String, sNomeFiletto As String)
@@ -676,43 +742,58 @@ Module picDropMDL
                 bt = CaricaImmagine(sNomeFile)
                 Application.DoEvents()
 
-                Dim w As Integer = bt.Width
-                Dim h As Integer = bt.Height
-
-                bt.Dispose()
-                bt = Nothing
-
-                If w > 200 And h > 200 And ScartaPiccole = True Then
-                    Dim Dime As Integer = p.ScriveDimensioniImmagine(sNomeFile, lblDimensioni)
-                    If Not lblDimensioni Is Nothing Then
-                        lblDimensioni.Visible = True
-                    End If
-
-                    Dim sDatella As String = Now.Year & "-" & Format(Now.Month, "00") & "-" & Format(Now.Day, "00") & " " & Format(Now.Hour, "00") & ":" & Format(Now.Minute, "00") & ":" & Format(Now.Second, "00")
-
-                    Application.DoEvents()
-                    p.ScriveIndirizzoSuDB(varConnessione, conn, Url, sDatella, Dime, sNomeFile)
-                    Application.DoEvents()
-
-                    Ritorno = 1
-
-                    ' Scrive tag exif
-                    ScriveTag(sNomeFile, NomeSito, Resto)
-                    ' Scrive tag exif
-
-                    Application.DoEvents()
-
-                    If Not frmOrigine Is Nothing Then
-                        frmOrigine.BackgroundImageLayout = ImageLayout.Stretch
-                        frmOrigine.BackgroundImage = CaricaImmagine(sNomeFile)
-                        Application.DoEvents()
-                    End If
-                Else
+                If bt Is Nothing Then
                     Try
                         Kill(sNomeFile)
                     Catch ex As Exception
 
                     End Try
+                Else
+                    Dim w As Integer = bt.Width
+                    Dim h As Integer = bt.Height
+
+                    bt.Dispose()
+                    bt = Nothing
+
+                    Dim Ok As Boolean = True
+
+                    If ScartaPiccole Then
+                        If w < 200 Or h < 200 Then
+                            Ok = False
+                            Try
+                                Kill(sNomeFile)
+                            Catch ex As Exception
+
+                            End Try
+                        End If
+                    End If
+
+                    If Ok Then
+                        Dim Dime As Integer = p.ScriveDimensioniImmagine(sNomeFile, lblDimensioni)
+                        If Not lblDimensioni Is Nothing Then
+                            lblDimensioni.Visible = True
+                        End If
+
+                        Dim sDatella As String = Now.Year & "-" & Format(Now.Month, "00") & "-" & Format(Now.Day, "00") & " " & Format(Now.Hour, "00") & ":" & Format(Now.Minute, "00") & ":" & Format(Now.Second, "00")
+
+                        Application.DoEvents()
+                        p.ScriveIndirizzoSuDB(varConnessione, conn, Url, sDatella, Dime, sNomeFile)
+                        Application.DoEvents()
+
+                        Ritorno = 1
+
+                        ' Scrive tag exif
+                        ScriveTag(sNomeFile, NomeSito, Resto)
+                        ' Scrive tag exif
+
+                        Application.DoEvents()
+
+                        If Not frmOrigine Is Nothing Then
+                            frmOrigine.BackgroundImageLayout = ImageLayout.Stretch
+                            frmOrigine.BackgroundImage = CaricaImmagine(sNomeFile)
+                            Application.DoEvents()
+                        End If
+                    End If
                 End If
             End If
         Else

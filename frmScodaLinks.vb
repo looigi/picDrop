@@ -98,15 +98,15 @@ Public Class frmScodaLinks
     End Sub
 
     Private Sub TastoClickato(sender As Object, e As EventArgs)
-        Dim b As Button = DirectCast(sender, Button)
+        'Dim b As Button = DirectCast(sender, Button)
 
-        For i As Integer = 0 To Cartelle.Length - 1
-            If BottoniDirs(i).Text = b.Text Then
-                Operazioni(QualeImm) = "Sposta Verso " & b.Text
+        'For i As Integer = 0 To Cartelle.Length - 1
+        '    If BottoniDirs(i).Text = b.Text Then
+        '        Operazioni(QualeImm) = "Sposta Verso " & b.Text
 
-                Call cmdAvanti_Click(sender, e)
-            End If
-        Next
+        '        Call cmdAvanti_Click(sender, e)
+        '    End If
+        'Next
     End Sub
 
     Private GifImage As GifImage
