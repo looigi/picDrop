@@ -61,10 +61,14 @@ Public Class frmScodaLinks
 
             Panel2.Controls.Add(Tasti(i))
 
-            cmbDest.Items.Add(Nomi(i))
+            If Not Nomi(i) Is Nothing Then
+                cmbDest.Items.Add(Nomi(i))
+            End If
         Next
-        cmbDest.Text = cmbDest.Items(0)
 
+        If cmbDest.Items.Count > 0 Then
+            cmbDest.Text = cmbDest.Items(0)
+        End If
 
         DirDest = Cartelle(0)
 

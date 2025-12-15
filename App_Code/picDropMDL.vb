@@ -1,8 +1,13 @@
-﻿Imports System.IO
-Imports System.Threading
+﻿Imports System.ComponentModel
+Imports System.Drawing
+Imports System.Drawing.Imaging
+Imports System.IO
 Imports System.Net
-Imports System.ComponentModel
 Imports System.Net.Cache
+Imports System.Text
+Imports System.Threading
+Imports MetadataExtractor
+Imports MetadataExtractor.Formats.Exif
 
 Module picDropMDL
     Public TipoCollegamento As String
@@ -186,7 +191,7 @@ Module picDropMDL
                     Nomi(i) = Campi(0)
                     Cartelle(i) = Campi(1)
 
-                    If Not Directory.Exists(Cartelle(i)) Then
+                    If Not System.IO.Directory.Exists(Cartelle(i)) Then
                         Dim c As String = Application.StartupPath & "\Download"
                         'MsgBox("Cartella " & vbCrLf & Cartelle(i) & vbCrLf & "per il tipo '" & Nomi(i) & "' non esistente." & vbCrLf & vbCrLf & "Applicata cartella di sistema:" & vbCrLf & c, vbExclamation)
                         Try
@@ -299,7 +304,7 @@ Module picDropMDL
         Dim webClient As New System.Net.WebClient
         Try
             Dim bytes() As Byte = webClient.DownloadData(Url.Replace("\", "/"))
-            Dim stream As New IO.MemoryStream(bytes)
+            Dim stream As New System.IO.MemoryStream(bytes)
             Dim location As String = Application.StartupPath & "\Links\Buttami.jpg"
 
             If saveFile Then My.Computer.FileSystem.WriteAllBytes(location, bytes, False)
@@ -892,7 +897,7 @@ Module picDropMDL
         Dim fs As System.IO.FileStream = Nothing
 
         Try
-            fs = New System.IO.FileStream(NomeImmagine, IO.FileMode.Open, IO.FileAccess.Read)
+            fs = New System.IO.FileStream(NomeImmagine, FileMode.Open, FileAccess.Read)
             bmp = System.Drawing.Image.FromStream(fs)
         Catch ex As Exception
             'Stop
@@ -909,20 +914,30 @@ Module picDropMDL
 
     Private Function RitornaDatiExif(Immagine As String) As String()
         Dim imm As Bitmap = CaricaImmagine(Immagine)
-        Dim Campi() As String = {}
+        Dim Campi As New List(Of String)
 
         Try
-            Dim er As Goheer.EXIF.EXIFextractor = New Goheer.EXIF.EXIFextractor(imm, "§")
-            Campi = er.ToString.Split("§")
-            er = Nothing
-        Catch ex As Exception
+            Using ms As New MemoryStream()
+                imm.Save(ms, Imaging.ImageFormat.Jpeg)
+                ms.Position = 0
 
+                Dim directories As IReadOnlyList(Of MetadataExtractor.Directory)
+
+                For Each d As MetadataExtractor.Directory In directories
+                    For Each tag As MetadataExtractor.Tag In d.Tags
+                        Campi.Add($"{d.Name}:{tag.Name}={tag.Description}")
+                    Next
+                Next
+            End Using
+
+        Catch ex As Exception
+            ' gestisci log se necessario
         End Try
 
         imm.Dispose()
         imm = Nothing
 
-        Return Campi
+        Return Campi.ToArray()
     End Function
 
     Private Function PrendeIdDaTag(Tagghetto As String) As Integer
@@ -938,76 +953,76 @@ Module picDropMDL
         Return id
     End Function
 
+    Private Sub ScriviExif(bmp As Bitmap, prop As PropertyItem, id As Integer, valore As String)
+
+        prop.Id = id
+        prop.Type = 2 ' ASCII
+        prop.Value = Encoding.ASCII.GetBytes(valore & Chr(0))
+        prop.Len = prop.Value.Length
+
+        bmp.SetPropertyItem(prop)
+    End Sub
+
     Public Sub ScriveTag(sNomeFile As String, NomeSito As String, Resto() As String)
+
         Dim DatiExif() As String = RitornaDatiExif(sNomeFile)
+        Dim bmp As Bitmap = CType(Image.FromFile(sNomeFile), Bitmap)
 
-        Dim bmp As Bitmap = Image.FromFile(sNomeFile)
-
-        Dim er As Goheer.EXIF.EXIFextractor = New Goheer.EXIF.EXIFextractor(bmp, "\n")
-        Dim Datella As String = Format(Now.Day, "00") & "/" & Format(Now.Month, "00") & "/" & Format(Now.Year, "00") & " " & Format(Now.Hour, "00") & ":" & Format(Now.Minute, "00") & ":" & Format(Now.Second, "00")
+        Dim Datella As String =
+            $"{Now:dd/MM/yy HH:mm:ss}"
 
         Dim testo As String = NomeSito & ";"
         For i As Integer = 0 To Resto.Length - 2
-            testo += Resto(i) & ";"
+            testo &= Resto(i) & ";"
         Next
 
-        Dim nomeimm As String = Resto(Resto.Length - 1)
-        For i As Integer = nomeimm.Length To 1 Step -1
-            If Mid(nomeimm, i, 1) = "." Then
-                nomeimm = Mid(nomeimm, 1, i - 1)
-                Exit For
-            End If
-        Next
-
-        ' imposta codici originali
-        Dim testina As String
-        Dim testone As String
-        Dim id As Integer
         Dim ceCommento As Boolean = False
 
+        ' --- carica PropertyItem "vuoto" (trucco obbligatorio)
+        Dim prop As PropertyItem = bmp.PropertyItems(0)
+
         For i As Integer = 0 To DatiExif.Length - 1
-            If DatiExif(i) <> "" Then
-                testina = Mid(DatiExif(i), 1, DatiExif(i).IndexOf(":")).Trim.ToUpper
-                testone = Mid(DatiExif(i), DatiExif(i).IndexOf(":") + 2, DatiExif(i).Length).Trim
-                id = PrendeIdDaTag(testina)
+            If DatiExif(i) <> "" AndAlso DatiExif(i).Contains(":") Then
+
+                Dim testina As String =
+                    DatiExif(i).Substring(0, DatiExif(i).IndexOf(":")).Trim.ToUpper
+
+                Dim testone As String =
+                    DatiExif(i).Substring(DatiExif(i).IndexOf(":") + 1).Trim
+
+                Dim id As Integer = PrendeIdDaTag(testina)
+
                 If id <> -1 Then
+
                     If id = 270 Then
                         testone = testo & "§;" & testone & ";"
                         ceCommento = True
                     End If
 
-                    er.setTag(id, testone & Chr(0))
+                    ScriviExif(bmp, prop, id, testone)
                 End If
             End If
         Next
-        ' imposta codici originali
 
-        If ceCommento = False Then
-            er.setTag(270, testo & Chr(0))
+        If Not ceCommento Then
+            ScriviExif(bmp, prop, 270, testo)
         End If
-        er.setTag(305, "picDROP" & Chr(0))
-        er.setTag(306, Datella & Chr(0))
 
-        Try
-            bmp.Save(sNomeFile & ".bbb")
-        Catch ex As Exception
-            'Stop
-        End Try
+        ScriviExif(bmp, prop, 305, "picDROP")
+        ScriviExif(bmp, prop, 306, Datella)
 
-        er = Nothing
+        bmp.Save(sNomeFile & ".bbb", ImageFormat.Jpeg)
         bmp.Dispose()
-        bmp = Nothing
 
         File.Delete(sNomeFile)
+
         Dim c As Integer = 0
         Do While File.Exists(sNomeFile & ".bbb")
             Rename(sNomeFile & ".bbb", sNomeFile)
             Thread.Sleep(1000)
             c += 1
-            If c = 5 Then
-                Exit Do
-            End If
+            If c = 5 Then Exit Do
         Loop
-    End Sub
 
+    End Sub
 End Module
