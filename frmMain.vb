@@ -80,6 +80,10 @@ Public Class frmMain
         e.Effect = DragDropEffects.Move
 
         If e.Data.GetDataPresent(DataFormats.Text) Then
+            DirBase = Application.StartupPath & "\picDropUpload"
+            Dim gf As New GestioneFilesDirectory
+            gf.CreaDirectoryDaPercorso(DirBase & "\")
+
             If DirBase = "" Then
                 MsgBox("Nessuna directory impostata")
             Else

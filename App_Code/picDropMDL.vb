@@ -916,26 +916,25 @@ Module picDropMDL
         Dim imm As Bitmap = CaricaImmagine(Immagine)
         Dim Campi As New List(Of String)
 
-        Try
-            Using ms As New MemoryStream()
-                imm.Save(ms, Imaging.ImageFormat.Jpeg)
-                ms.Position = 0
+        'Try
+        '    Using ms As New MemoryStream()
+        '        imm.Save(ms, Imaging.ImageFormat.Jpeg)
+        '        ms.Position = 0
 
-                Dim directories As IReadOnlyList(Of MetadataExtractor.Directory)
+        '        Dim directories As IReadOnlyList(Of MetadataExtractor.Directory)
 
-                For Each d As MetadataExtractor.Directory In directories
-                    For Each tag As MetadataExtractor.Tag In d.Tags
-                        Campi.Add($"{d.Name}:{tag.Name}={tag.Description}")
-                    Next
-                Next
-            End Using
+        '        For Each d As MetadataExtractor.Directory In directories
+        '            For Each tag As MetadataExtractor.Tag In d.Tags
+        '                Campi.Add($"{d.Name}:{tag.Name}={tag.Description}")
+        '            Next
+        '        Next
+        '    End Using
+        'Catch ex As Exception
+        '    ' gestisci log se necessario
+        'End Try
 
-        Catch ex As Exception
-            ' gestisci log se necessario
-        End Try
-
-        imm.Dispose()
-        imm = Nothing
+        'imm.Dispose()
+        'imm = Nothing
 
         Return Campi.ToArray()
     End Function
