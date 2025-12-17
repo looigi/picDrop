@@ -1235,9 +1235,13 @@ Module picDropMDL
     End Sub
 
     Public Function CaricaImmagine(NomeImmagine As String) As Image
-        Using img As Image = Image.FromFile(NomeImmagine)
-            Return New Bitmap(img)
-        End Using
+        Try
+            Using img As Image = Image.FromFile(NomeImmagine)
+                Return New Bitmap(img)
+            End Using
+        Catch ex As Exception
+            Return Nothing
+        End Try
 
         'Dim bmp As Image = Nothing
         'Dim fs As System.IO.FileStream = Nothing

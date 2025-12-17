@@ -389,6 +389,7 @@ Public Class frmMain
         Dim sResto As String
         Dim Resto() As String = {}
         Dim a1 As Integer = Mid(NomeSito, 11, NomeSito.Length).IndexOf("/")
+
         If a1 > -1 Then
             Application.DoEvents()
             sResto = Mid(NomeSito, a1 + 11, NomeSito.Length)
@@ -413,6 +414,8 @@ Public Class frmMain
         'End If
 
         Dim Ok As Boolean = True
+        Dim PathSitoControllo As String = PathSito
+        PathSitoControllo = PathSitoControllo.Replace("www.", "").Replace("http://", "").Replace("https://", "")
 
         If Not Url.Contains(PathSito) Then
             If Not Url.ToUpper.Contains("HTTP") Then
@@ -429,6 +432,7 @@ Public Class frmMain
         If Ok Then
             If creaStrutturaCartelle Then
                 Dim pathDopoUrl As String = Url.Replace(UrlPrincipale, "")
+                pathDopoUrl = pathDopoUrl.Replace("www.", "").Replace("http://", "").Replace("https://", "")
                 Dim Immagine As String = gf.TornaNomeFileDaPath(pathDopoUrl)
                 pathDopoUrl = gf.TornaNomeDirectoryDaPath(pathDopoUrl)
 
