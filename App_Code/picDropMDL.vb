@@ -4,10 +4,16 @@ Imports System.Drawing.Imaging
 Imports System.IO
 Imports System.Net
 Imports System.Net.Cache
+Imports System.Security.Policy
 Imports System.Text
+Imports System.Text.RegularExpressions
 Imports System.Threading
+Imports HtmlAgilityPack
 Imports MetadataExtractor
 Imports MetadataExtractor.Formats.Exif
+Imports OpenQA.Selenium
+Imports OpenQA.Selenium.Chrome
+Imports OpenQA.Selenium.Support.UI
 
 Module picDropMDL
     Public TipoCollegamento As String
@@ -45,8 +51,22 @@ Module picDropMDL
     Public CaratteriStop2() As String = {Chr(34), "'", ">", ";", ")", "(", "<", "{", "}"}
     Public FilesImmagini() As String = {"CID:", ".JPG", ".JPEG", ".PNG", ".BMP", ".GIF", ".PCX", ".IMG?H"}
     Public Filesvideo() As String = {".ZIP", ".RAR", ".MP4", ".WMV", ".3GP", ".MKV", ".AVI", ".SWV", ".MP3", ".MPG", ".MPEG"}
-    Public pagineHtml As List(Of String)
+    Public pagineHtml()() As String
     Public qualePagina As Integer = 0
+    Public urlSito As String = ""
+    Public modalitaScan As String = ""
+
+    ' Da aggiungere come oggetti di scelta sul form
+    Public creaStrutturaCartelle As Boolean = True
+    Public linkSoloInterni As Boolean = True
+    Public esegueDiscese As Boolean = True
+    Public numeroDiscese As Integer = 1 ' --> Significa due giri
+    Public mostraFinestra As Boolean = True
+    ' Da aggiungere come oggetti di scelta sul form
+
+    Public numeroDiscesa As Integer = 0
+    Public contatoreCID As Integer = 0
+    Public immaginiScaricate As New List(Of String)
 
     Public Sub LeggeSettaggi()
         LeggeCartelle()
@@ -242,34 +262,121 @@ Module picDropMDL
         Return Ritorno
     End Function
 
-    Public Function ControllaSeCiSonoSiti(Cosa As String) As List(Of String)
+    Public Function ControllaSeCiSonoSiti(Cosa As String, UrlSitoCompleto As String) As List(Of String)
         Dim Appoggio As String = Cosa.Replace("3D" & Chr(34), "")
         Dim Ritorno As Long = -1
         Dim Lista As New List(Of String)
         Dim Cose As String = Chr(34) & "'> "
+        Dim Estensioni() As String = {".JPG", ".CSS", "JPEG", ".PNG", ".ICO"}
+        Dim Dove As Integer = 0
 
-        While Appoggio.Contains("href=")
-            Dim a As Long = Appoggio.IndexOf("href=")
-            Dim Appo As String = Mid(Appoggio, a + 6, Appoggio.Length)
-            For i As Integer = 1 To Cose.Length
-                Dim Car As String = Mid(Cose, i, 1)
-                If Mid(Appo, 1, 1) = Car Then
-                    Appo = Mid(Appo, 2, Appo.Length)
-                End If
+        Try
+            While Appoggio.Contains("href=")
+                Dim a As Long = Appoggio.IndexOf("href=")
+                Dove = 1
+                Dim Appo As String = Mid(Appoggio, a + 6, Appoggio.Length)
 
-                Dim b As Integer = Appo.IndexOf(Car)
-                If b > -1 Then
-                    Appo = Mid(Appo, 1, b - 1)
-                    If Not Lista.Contains(Appo) Then
-                        Lista.Add(Appo)
+                Appo = Appo.Replace(vbCrLf, "").Replace(vbTab, "")
+                Appo = Appo.Replace("3D'", "").Replace("3D" & Chr(34), "")
+                Dove = 2
+
+                For i As Integer = 1 To Cose.Length
+                    Dim Car As String = Mid(Cose, i, 1)
+
+                    Dove = 3
+                    If Mid(Appo, 1, 1) = Car Then
+                        Appo = Mid(Appo, 2, Appo.Length)
                     End If
-                    Appoggio = Mid(Appoggio, 1, a - 1) & Mid(Appoggio, a + 6, Appoggio.Length)
-                    Exit For
-                Else
-                    Appoggio = Mid(Appoggio, 1, a - 1) & Mid(Appoggio, a + 6, Appoggio.Length)
+
+                    Dim b As Integer = Appo.IndexOf(Car)
+                    Dove = 4
+
+                    Application.DoEvents()
+                    If BloccaDownloadPagina Then
+                        Exit For
+                    End If
+
+                    If b > -1 Then
+                        'If Not Appo.ToUpper.Contains(".CSS") Then
+                        'If Mid(Appo.ToUpper, 1, 3) <> "CID" Then Stop
+                        Appo = Mid(Appo, 1, b)
+
+                        If Right(Appo, 1) = "/" Then
+                            Appo = Mid(Appo, 1, Appo.Length - 1)
+                        End If
+
+                        If Not Mid(Appo, 1, 10).ToUpper.Contains("HTTP") And Mid(Appo.ToUpper, 1, 4) <> "CID:" Then
+                            Appo = UrlSitoCompleto & Appo
+                            'Stop
+                        End If
+
+                        Dove = 6
+
+                        Dim ok1 As Boolean = True
+
+                        If Not pagineHtml(numeroDiscesa) Is Nothing Then
+                            For Each p As String In pagineHtml(numeroDiscesa)
+                                If Appo.ToUpper = p.ToUpper Then
+                                    ok1 = False
+                                    Exit For
+                                End If
+                            Next
+                        End If
+
+                        If ok1 And Not Lista.Contains(Appo) Then
+                            Dim Ok2 As Boolean = True
+
+                            Dove = 7
+                            For Each s As String In Estensioni
+                                If Appo.ToUpper.EndsWith(s) Then
+                                    Ok2 = False
+                                    Exit For
+                                End If
+                            Next
+
+                            If Ok2 Then
+                                Dove = 8
+                                Dim NomeSito As String = Appo
+
+                                NomeSito = NomeSito.Replace("http://", "").Replace("https://", "")
+                                If NomeSito.Contains("/") Then
+                                    NomeSito = Mid(NomeSito, 1, NomeSito.IndexOf("/"))
+                                End If
+
+                                Dim ok As Boolean = False
+                                Dove = 9
+
+                                If linkSoloInterni Then
+                                    Dove = 10
+                                    If NomeSito.ToUpper.Contains(urlSito.ToUpper) Then
+                                        ok = True
+                                    End If
+                                Else
+                                    ok = True
+                                End If
+
+                                If ok Then
+                                    Dove = 11
+                                    Lista.Add(Appo)
+                                End If
+                            End If
+                        End If
+                        'End If
+
+                        Dove = 12
+                        Appoggio = Mid(Appoggio, 1, a - 1) & Mid(Appoggio, a + 6, Appoggio.Length)
+
+                        Exit For
+                    End If
+                Next
+
+                If BloccaDownloadPagina Then
+                    Exit While
                 End If
-            Next
-        End While
+            End While
+        Catch ex As Exception
+            Stop
+        End Try
 
         Return Lista
     End Function
@@ -331,6 +438,177 @@ Module picDropMDL
 
         End Try
     End Sub
+
+    ' Risolve URL relativi in assoluti
+    Private Function ResolveUrl(baseUrl As String, imgUrl As String) As String
+        If String.IsNullOrEmpty(imgUrl) Then Return ""
+
+        If imgUrl.StartsWith("http") Then
+            Return imgUrl
+        Else
+            Dim baseUri As New Uri(baseUrl)
+            Dim fullUri As New Uri(baseUri, imgUrl)
+            Return fullUri.ToString()
+        End If
+    End Function
+
+    Public Function ScaricaPaginaChrome(Url As String, NomeFile As String) As Boolean
+        For Each p In Process.GetProcessesByName("chromedriver")
+            Try
+                p.Kill()
+            Catch
+            End Try
+        Next
+
+        ' --- Configura Chrome headless e senza finestra DOS ---
+        Dim options As New ChromeOptions()
+        options.AddArgument("--headless")
+        options.AddArgument("--disable-gpu")
+        options.AddArgument("--window-size=1920,1080")
+        options.AddArgument("--disable-blink-features=AutomationControlled") ' evita rilevamento headless
+        options.AddArgument("--no-sandbox")
+        options.AddArgument("--disable-dev-shm-usage")
+
+        Dim service As ChromeDriverService = ChromeDriverService.CreateDefaultService()
+        service.HideCommandPromptWindow = True
+
+        Dim gf As New GestioneFilesDirectory
+        gf.CreaDirectoryDaPercorso("Links\")
+        gf.EliminaFileFisico(NomeFile)
+
+        Using driver As New ChromeDriver(service, options)
+            driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(120)
+
+            Try
+                driver.Navigate().GoToUrl(Url)
+
+                ' --- Attesa che la pagina sia completamente pronta ---
+                Dim wait As New WebDriverWait(driver, TimeSpan.FromSeconds(10))
+                wait.Until(Function(d) CType(d, IJavaScriptExecutor).ExecuteScript("return document.readyState").ToString() = "complete")
+
+                ' Salva il sorgente della pagina su file
+                Dim html As String = driver.PageSource
+                System.IO.File.WriteAllText(NomeFile, html)
+            Catch ex As WebDriverException
+                'Console.WriteLine("Timeout nel caricamento della pagina: " & Url & " - " & ex.Message)
+                Return False
+            End Try
+        End Using
+
+        Return True
+    End Function
+
+    Public Function PrendeImmagini(Url As String, NomeFile As String) As List(Of String)
+        Dim immagini As New List(Of String)
+
+        Dim doc As New HtmlAgilityPack.HtmlDocument()
+        doc.Load(NomeFile)
+
+        ' Tag <img>
+        Dim docs = doc.DocumentNode.SelectNodes("//img")
+
+        If Not docs Is Nothing Then
+            For Each imgNode In doc.DocumentNode.SelectNodes("//img")
+                Dim src As String = imgNode.GetAttributeValue("src", "")
+
+                If Not String.IsNullOrEmpty(src) Then
+                    immagini.Add(src)
+                End If
+            Next
+        End If
+
+        ' Tag <source> (per <picture> o video)
+        docs = doc.DocumentNode.SelectNodes("//source")
+        If Not docs Is Nothing Then
+            For Each sourceNode In docs
+                Dim srcset As String = sourceNode.GetAttributeValue("srcset", "")
+
+                If Not String.IsNullOrEmpty(srcset) Then
+                    ' srcset può contenere più URL separati da virgola
+                    For Each u In srcset.Split(","c)
+                        immagini.Add(u.Trim().Split(" "c)(0))
+                    Next
+                End If
+            Next
+        End If
+
+        ' --- 2. Estrazione background CSS tramite JavaScript ---
+        ' Parsing background-image nel file HTML salvato
+        docs = doc.DocumentNode.SelectNodes("//*[@style]")
+        If Not docs Is Nothing Then
+            For Each node In docs
+                Dim styleAttr As String = node.GetAttributeValue("style", "")
+
+                ' Cerca pattern background-image: url(...)
+                Dim match As Match = Regex.Match(styleAttr, "background-image\s*:\s*url\(['""]?(.*?)['""]?\)", RegexOptions.IgnoreCase)
+
+                If match.Success Then
+                    Dim imgUrl As String = match.Groups(1).Value
+                    Dim fullUrl As String = ResolveUrl(Url, imgUrl)
+                    If Not immaginiScaricate.Contains(fullUrl) Then
+                        immagini.Add(fullUrl)
+                        immaginiScaricate.Add(fullUrl)
+                    End If
+                End If
+            Next
+        End If
+
+        ' --- 3. Ricerca URL immagine nel codice sorgente ---
+        ' Converte il DOM in stringa completa per cercare URL diretti di immagini
+        Dim pageSource As String = doc.DocumentNode.OuterHtml
+
+        ' Regex per trovare tutti gli URL di immagini
+        Dim pattern As String = "(https?:\/\/[^\s'""<>]+?\.(?:jpg|jpeg|png|gif|webp|bmp))"
+        Dim matches As MatchCollection = Regex.Matches(pageSource, pattern, RegexOptions.IgnoreCase)
+
+        For Each m As Match In matches
+            Dim imgUrl As String = m.Value
+
+            If Not immaginiScaricate.Contains(imgUrl) Then
+                immagini.Add(imgUrl)
+                immaginiScaricate.Add(imgUrl)
+            End If
+        Next
+
+        Return immagini
+    End Function
+
+    Public Function PrendeCID(NomeFile As String) As List(Of String)
+        ' Lista dei CID trovati
+        Dim CidList As New List(Of String)
+
+        If File.Exists(NomeFile) Then
+            ' Carica HTML
+            Dim doc As New HtmlDocument()
+            doc.Load(NomeFile)
+
+            ' Seleziona tutti i nodi link e img
+            Dim nodes = doc.DocumentNode.SelectNodes("//link[@href] | //img[@src]")
+            If nodes IsNot Nothing Then
+                For Each node In nodes
+                    Dim attrValue As String = ""
+
+                    ' Prende href per link, src per img
+                    If node.Name.Equals("link", StringComparison.OrdinalIgnoreCase) Then
+                        attrValue = node.GetAttributeValue("href", "")
+                    ElseIf node.Name.Equals("img", StringComparison.OrdinalIgnoreCase) Then
+                        attrValue = node.GetAttributeValue("src", "")
+                    End If
+
+                    ' Se inizia con cid:, aggiungi alla lista
+                    If Not String.IsNullOrEmpty(attrValue) AndAlso attrValue.StartsWith("cid:", StringComparison.OrdinalIgnoreCase) Then
+                        If Not immaginiScaricate.Contains(attrValue) Then
+                            CidList.Add(attrValue)
+
+                            immaginiScaricate.Add(attrValue)
+                        End If
+                    End If
+                Next
+            End If
+        End If
+
+        Return CidList
+    End Function
 
     Private Sub ScaricaDaMSN(sNomeFile As String)
         Try
@@ -489,94 +767,158 @@ Module picDropMDL
         End If
     End Sub
 
-    Public Sub GestisceImmagineInline(sourcecode As String, Appoggio As String)
+    Public Function GestisceImmagineInline(sourcecode As String, Appoggio As String, PathSito As String, FormName As Form) As Boolean
         Dim sNomeFileInline As String = Mid(Appoggio, 5, Appoggio.Length)
-        Dim a As Long
+        'Dim a As Long
         Dim Inizio As Long = -1
         Dim Fine As Long = -1
         Dim gf As New GestioneFilesDirectory
         Dim Scaricata As Boolean = False
 
-        Appoggio = "Content-ID: <" & Mid(Appoggio, 5, Appoggio.Length) & ">"
-        a = sourcecode.IndexOf(Appoggio)
-        If a > -1 Then
-            Appoggio = Mid(sourcecode, a, sourcecode.Length)
-            'For k As Long = a To Appoggio.Length
-            '    If Mid(Appoggio, k, 2) = Chr(10) Then
-            '        Inizio = k
-            '        Exit For
-            '    End If
-            'Next
-            'If Inizio = 0 Then Inizio = 1
+        gf.CreaDirectoryDaPercorso(Application.StartupPath & "\Links\Scaricate\" & PathSito & "\")
 
-            'For k As Long = Inizio To Appoggio.Length
-            '    If Mid(Appoggio, k, 3) = Chr(10) Then
-            '        Fine = k + 3
-            '        Exit For
-            '    End If
-            'Next
+        'Appoggio = "Content-ID: <" & Mid(Appoggio, 5, Appoggio.Length) & ">"
+        'a = sourcecode.IndexOf(Appoggio)
+        'If a > -1 Then
+        '    Appoggio = Mid(sourcecode, a, sourcecode.Length)
+        '    Appoggio = Mid(Appoggio, 1, Appoggio.IndexOf("------=_NextPart"))
 
-            'Appoggio = Mid(Appoggio, Inizio, Fine - Inizio)
+        '    Dim Righe() As String = Appoggio.Split(Chr(10))
+        '    Appoggio = ""
+        '    If Righe.Length > 4 Then
+        '        Try
+        '            Dim B As Byte()
+        '            Dim c As Integer = 0
+        '            For Each S As String In Righe
+        '                c += 1
+        '                If c > 4 Then
+        '                    If S.Replace(Chr(13), "").Replace(Chr(10), "").Replace(" ", "") <> "" Then
+        '                        B = Convert.FromBase64String(S)
 
-            Appoggio = Mid(Appoggio, 1, Appoggio.IndexOf("------=_NextPart"))
+        '                        Dim fs As New FileStream("Links\Scaricate\" & PathSito & "\" & sNomeFileInline & ".jpg", FileMode.Append)
+        '                        fs.Write(B, 0, B.Length)
+        '                        fs.Close()
 
-            Dim Righe() As String = Appoggio.Split(Chr(10))
-            Appoggio = ""
-            If Righe.Length > 4 Then
-                Try
-                    Dim B As Byte()
-                    Dim c As Integer = 0
-                    For Each S As String In Righe
-                        c += 1
-                        If c > 4 Then
-                            If S.Replace(Chr(13), "").Replace(Chr(10), "").Replace(" ", "") <> "" Then
-                                B = Convert.FromBase64String(S)
+        '                        Scaricata = True
+        '                    End If
+        '                End If
+        '            Next
+        '        Catch ex As Exception
+        '            Appoggio = ""
+        '        End Try
+        '    End If
+        'End If
 
-                                Dim fs As New FileStream("Links\Scaricate\" & sNomeFileInline & ".jpg", FileMode.Append)
-                                fs.Write(B, 0, B.Length)
-                                fs.Close()
+        Dim cid As String = Appoggio
+        cid = cid.Replace("cid:", "").Trim()
 
-                                Scaricata = True
-                            End If
-                        End If
-                    Next
-                Catch ex As Exception
-                    Appoggio = ""
-                End Try
+        Dim marker As String = "Content-ID: <" & cid & ">"
+        Dim startIndex As Integer = sourcecode.IndexOf(marker)
+
+        If startIndex = -1 Then Return False : Exit Function
+
+        Dim mimeBlock As String = sourcecode.Substring(startIndex)
+        mimeBlock = mimeBlock.Substring(0, mimeBlock.IndexOf("------=_NextPart"))
+
+        Dim righe() As String = mimeBlock.Split({vbCrLf}, StringSplitOptions.None)
+
+        Dim base64Builder As New System.Text.StringBuilder()
+        Dim isBody As Boolean = False
+
+        For Each r As String In righe
+            If isBody Then
+                Dim clean As String = r.Trim()
+                If clean <> "" Then base64Builder.Append(clean)
             End If
-        End If
+
+            ' dopo la riga vuota finiscono gli header MIME
+            If r.Trim() = "" Then isBody = True
+        Next
+
+        Try
+            Dim bytes() As Byte = Convert.FromBase64String(base64Builder.ToString())
+
+            contatoreCID += 1
+            Dim path As String = "Links\Scaricate\" & PathSito & "\" & sNomeFileInline & "_" & contatoreCID & ".jpg"
+            File.WriteAllBytes(path, bytes)
+
+            Scaricata = True
+        Catch ex As Exception
+            If Not FormName Is Nothing Then
+                FormName.BackgroundImage = Image.FromFile("Icone\errore.png")
+                Application.DoEvents()
+            End If
+            ' base64 non valido
+        End Try
 
         gf = Nothing
 
         If Scaricata Then
+            Dim nomeFiletto As String = "Links\Scaricate\" & PathSito & "\" & sNomeFileInline & "_" & contatoreCID & ".jpg"
+
             If ScartaPiccole Then
                 Dim bt As System.Drawing.Bitmap
-                bt = CaricaImmagine("Links\Scaricate\" & sNomeFileInline & ".jpg")
-                Application.DoEvents()
+                bt = CaricaImmagine(nomeFiletto)
+                'Application.DoEvents()
 
                 If bt Is Nothing Then
-                    Try
-                        Kill("Links\Scaricate\" & sNomeFileInline & ".jpg")
-                    Catch ex As Exception
+                    If Not FormName Is Nothing Then
+                        FormName.BackgroundImage = Image.FromFile("Icone\errore.png")
+                        Application.DoEvents()
+                    End If
 
+                    Try
+                        contatoreCID -= 1
+                        Kill(nomeFiletto)
+                    Catch ex As Exception
+                        'Stop
                     End Try
+
+                    Return False
                 Else
                     Dim w As Integer = bt.Width
                     Dim h As Integer = bt.Height
 
                     bt.Dispose()
                     bt = Nothing
-                    If w < 200 Or h < 200 Then
-                        Try
-                            Kill("Links\Scaricate\" & sNomeFileInline & ".jpg")
-                        Catch ex As Exception
 
+                    If w < 200 Or h < 200 Then
+                        If Not FormName Is Nothing Then
+                            FormName.BackgroundImage = Image.FromFile("Icone\errore.png")
+                            Application.DoEvents()
+                        End If
+
+                        Try
+                            contatoreCID -= 1
+                            Kill(nomeFiletto)
+                        Catch ex As Exception
+                            'Stop
                         End Try
+
+                        Return False
+                    Else
+                        If Not FormName Is Nothing Then
+                            FormName.BackgroundImage = Image.FromFile(nomeFiletto)
+                            Application.DoEvents()
+                        End If
+
+                        Return True
                     End If
                 End If
+            Else
+                If Not FormName Is Nothing Then
+                    FormName.BackgroundImage = Image.FromFile(nomeFiletto)
+                    Application.DoEvents()
+                End If
+
+                Return False
             End If
+
+            Return False
         End If
-    End Sub
+
+        Return False
+    End Function
 
     Private Sub GestionePHP(Url As String, sNomeFile As String, sNomeFiletto As String)
         Dim gf As New GestioneFilesDirectory
@@ -893,23 +1235,27 @@ Module picDropMDL
     End Sub
 
     Public Function CaricaImmagine(NomeImmagine As String) As Image
-        Dim bmp As Image = Nothing
-        Dim fs As System.IO.FileStream = Nothing
+        Using img As Image = Image.FromFile(NomeImmagine)
+            Return New Bitmap(img)
+        End Using
 
-        Try
-            fs = New System.IO.FileStream(NomeImmagine, FileMode.Open, FileAccess.Read)
-            bmp = System.Drawing.Image.FromStream(fs)
-        Catch ex As Exception
-            'Stop
-        End Try
+        'Dim bmp As Image = Nothing
+        'Dim fs As System.IO.FileStream = Nothing
 
-        If fs Is Nothing = False Then
-            fs.Close()
-        End If
-        fs.Dispose()
-        fs = Nothing
+        'Try
+        '    fs = New System.IO.FileStream(NomeImmagine, FileMode.Open, FileAccess.Read)
+        '    bmp = System.Drawing.Image.FromStream(fs)
+        'Catch ex As Exception
+        '    'Stop
+        'End Try
 
-        Return bmp
+        'If fs Is Nothing = False Then
+        '    fs.Close()
+        'End If
+        'fs.Dispose()
+        'fs = Nothing
+
+        'Return bmp
     End Function
 
     Private Function RitornaDatiExif(Immagine As String) As String()
