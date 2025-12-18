@@ -12,6 +12,7 @@ Imports HtmlAgilityPack
 Imports MetadataExtractor
 Imports MetadataExtractor.Formats.Exif
 Imports OpenQA.Selenium
+Imports OpenQA.Selenium.BiDi.Network
 Imports OpenQA.Selenium.Chrome
 Imports OpenQA.Selenium.Support.UI
 
@@ -55,6 +56,10 @@ Module picDropMDL
     Public qualePagina As Integer = 0
     Public urlSito As String = ""
     Public modalitaScan As String = ""
+    Public Scaricate As Integer = 0
+    Public Piccole As Integer = 0
+    Public ImmaginiDaScaricare As New List(Of String)
+    Public CidListDaScaricare As New List(Of String)
 
     ' Da aggiungere come oggetti di scelta sul form
     Public creaStrutturaCartelle As Boolean = True
@@ -452,7 +457,22 @@ Module picDropMDL
         End If
     End Function
 
+    Public Sub ScriveInfos(Operazione As String)
+        frmInfo.lblInfo.Text = Operazione
+        If pagineHtml IsNot Nothing And pagineHtml(numeroDiscesa) IsNot Nothing Then
+            frmInfo.lblDettaglio.Text = "Pagine: " & (qualePagina + 1) & "/" & (pagineHtml(numeroDiscesa).Length) & " - Discesa: " & (numeroDiscesa + 1) & "/" & (numeroDiscese + 1)
+        Else
+            frmInfo.lblDettaglio.Text = "Pagine: In lettura"
+        End If
+        frmInfo.lblScaricate.Text = "Scaricate: " & Scaricate & " - cID: " & contatoreCID & " - Piccole: " & Piccole
+        Application.DoEvents()
+    End Sub
+
     Public Function ScaricaPaginaChrome(Url As String, NomeFile As String) As Boolean
+        If BloccaDownloadPagina Then
+            Return False
+        End If
+
         For Each p In Process.GetProcessesByName("chromedriver")
             Try
                 p.Kill()
@@ -468,23 +488,96 @@ Module picDropMDL
         options.AddArgument("--disable-blink-features=AutomationControlled") ' evita rilevamento headless
         options.AddArgument("--no-sandbox")
         options.AddArgument("--disable-dev-shm-usage")
+        options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        options.AddArgument("--start-minimized")
 
         Dim service As ChromeDriverService = ChromeDriverService.CreateDefaultService()
         service.HideCommandPromptWindow = True
 
         Dim gf As New GestioneFilesDirectory
+        Dim EsteSito As String = gf.TornaEstensioneFileDaPath(Url).ToUpper
+        If EsteSito = ".JS" Then
+            Return False
+        End If
+
         gf.CreaDirectoryDaPercorso("Links\")
         gf.EliminaFileFisico(NomeFile)
 
         Using driver As New ChromeDriver(service, options)
+            driver.Manage().Window.Minimize()
+            driver.Manage().Window.Position = New System.Drawing.Point(-2000, 0)
+            driver.Manage().Window.Size = New System.Drawing.Size(800, 600)
+
             driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(120)
 
             Try
                 driver.Navigate().GoToUrl(Url)
 
                 ' --- Attesa che la pagina sia completamente pronta ---
-                Dim wait As New WebDriverWait(driver, TimeSpan.FromSeconds(10))
-                wait.Until(Function(d) CType(d, IJavaScriptExecutor).ExecuteScript("return document.readyState").ToString() = "complete")
+                Dim wait As New WebDriverWait(driver, TimeSpan.FromSeconds(30))
+
+                wait.Until(Function(d)
+                               Return CType(d, IJavaScriptExecutor) _
+                   .ExecuteScript("return document.readyState") _
+                   .ToString() = "complete"
+                           End Function)
+
+                Dim js = CType(driver, IJavaScriptExecutor)
+
+                wait.Until(Function(d)
+                               Dim ready = js.ExecuteScript("return document.readyState").ToString() = "complete"
+
+                               Dim dom1 = CInt(js.ExecuteScript("return document.getElementsByTagName('*').length"))
+                               Threading.Thread.Sleep(800)
+                               Dim dom2 = CInt(js.ExecuteScript("return document.getElementsByTagName('*').length"))
+
+                               Return ready AndAlso dom1 = dom2
+                           End Function)
+
+                wait.Until(Function(d)
+                               Dim imgsLoaded = js.ExecuteScript(
+                                  "return Array.from(document.images).every(i => i.complete);")
+                               Return imgsLoaded
+                           End Function)
+
+                Threading.Thread.Sleep(1000)
+
+                Dim oggetti As Object = js.ExecuteScript(
+                    "var urls = [];" &
+                    "Array.from(document.images).forEach(i => urls.push(i.src));" &
+                    "Array.from(document.querySelectorAll('link[rel=""stylesheet""]')).forEach(i => urls.push(i.href));" &
+                    "Array.from(document.scripts).forEach(s => { if(s.src) urls.push(s.src); });" &
+                    "Array.from(document.querySelectorAll('iframe')).forEach(f => urls.push(f.src));" &
+                    "return urls;")
+
+                Dim urls = CType(oggetti, IEnumerable)
+                Dim client As New WebClient()
+
+                For Each u In urls
+                    Dim urlString As String = u.ToString()
+
+                    If urlString.StartsWith("data:") Then
+                        Dim base64Data = urlString.Split(","c)(1)
+
+                        If Not CidListDaScaricare.Contains(base64Data) Then
+                            CidListDaScaricare.Add(base64Data)
+                        End If
+                    Else
+                        Try
+                            Dim Immagine As String = urlString
+                            Dim Estensione As String = gf.TornaEstensioneFileDaPath(Immagine).ToUpper
+
+                            If Not ImmaginiDaScaricare.Contains(Immagine) Then
+                                Select Case Estensione
+                                    Case ".JPG", ".JPEG", ".PNG", ".BMP", ".GIF", ".IMG", ".WEBP"
+                                        ImmaginiDaScaricare.Add(Immagine)
+                                End Select
+                            End If
+                        Catch ex As Exception
+                            'Console.WriteLine("Errore scaricamento: " & urlString & " -> " & ex.Message)
+                        End Try
+                    End If
+                Next
 
                 ' Salva il sorgente della pagina su file
                 Dim html As String = driver.PageSource
@@ -499,6 +592,10 @@ Module picDropMDL
     End Function
 
     Public Function PrendeImmagini(Url As String, NomeFile As String) As List(Of String)
+        If File.Exists(NomeFile) = False Then
+            Return New List(Of String)
+        End If
+
         Dim immagini As New List(Of String)
 
         Dim doc As New HtmlAgilityPack.HtmlDocument()
@@ -545,6 +642,7 @@ Module picDropMDL
                 If match.Success Then
                     Dim imgUrl As String = match.Groups(1).Value
                     Dim fullUrl As String = ResolveUrl(Url, imgUrl)
+
                     If Not immaginiScaricate.Contains(fullUrl) Then
                         immagini.Add(fullUrl)
                         immaginiScaricate.Add(fullUrl)
@@ -574,6 +672,10 @@ Module picDropMDL
     End Function
 
     Public Function PrendeCID(NomeFile As String) As List(Of String)
+        If File.Exists(NomeFile) = False Then
+            Return New List(Of String)
+        End If
+
         ' Lista dei CID trovati
         Dim CidList As New List(Of String)
 
@@ -584,6 +686,7 @@ Module picDropMDL
 
             ' Seleziona tutti i nodi link e img
             Dim nodes = doc.DocumentNode.SelectNodes("//link[@href] | //img[@src]")
+
             If nodes IsNot Nothing Then
                 For Each node In nodes
                     Dim attrValue As String = ""
@@ -883,6 +986,8 @@ Module picDropMDL
                     bt = Nothing
 
                     If w < 200 Or h < 200 Then
+                        Piccole += 1
+
                         If Not FormName Is Nothing Then
                             FormName.BackgroundImage = Image.FromFile("Icone\errore.png")
                             Application.DoEvents()
@@ -1106,6 +1211,8 @@ Module picDropMDL
 
                     If ScartaPiccole Then
                         If w < 200 Or h < 200 Then
+                            Piccole += 1
+
                             Ok = False
                             Try
                                 Kill(sNomeFile)

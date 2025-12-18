@@ -150,6 +150,12 @@
     <Compile Include="frmAggiungeLink.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="frmInfo.Designer.vb">
+      <DependentUpon>frmInfo.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmInfo.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="frmListaDownload.Designer.vb">
       <DependentUpon>frmListaDownload.vb</DependentUpon>
     </Compile>
@@ -217,6 +223,9 @@
   <ItemGroup>
     <EmbeddedResource Include="frmAggiungeLink.resx">
       <DependentUpon>frmAggiungeLink.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmInfo.resx">
+      <DependentUpon>frmInfo.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmListaDownload.resx">
       <DependentUpon>frmListaDownload.vb</DependentUpon>

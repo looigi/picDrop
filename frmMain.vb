@@ -1,16 +1,16 @@
-﻿Imports System.IO
+﻿Imports System.ComponentModel
 Imports System.Data.OleDb
-Imports System.Text
+Imports System.Diagnostics.Eventing.Reader
 Imports System.Drawing.Imaging
+Imports System.IO
 Imports System.Net
-Imports System.ComponentModel
 Imports System.Runtime.InteropServices
+Imports System.Text
 Imports System.Threading
 Imports HtmlAgilityPack
+Imports MetadataExtractor.Formats.Iso14496
 
 Public Class frmMain
-    ' https://beamodels.it/servizi/hostess-steward-accoglienza
-
     Inherits System.Windows.Forms.Form
 
     Private UltimaImmagine As String = ""
@@ -417,7 +417,7 @@ Public Class frmMain
         Dim PathSitoControllo As String = PathSito
         PathSitoControllo = PathSitoControllo.Replace("www.", "").Replace("http://", "").Replace("https://", "")
 
-        If Not Url.Contains(PathSito) Then
+        If Not Url.Contains(PathSito.Replace("www.", "")) Then
             If Not Url.ToUpper.Contains("HTTP") Then
                 Url = UrlPrincipale & Url
             Else
@@ -443,9 +443,9 @@ Public Class frmMain
                 sNomeFile = NuovoPath & "\" & pathDopoUrl.Replace("/", "\") & "\" & NuovoNome
                 gf.CreaDirectoryDaPercorso(sNomeFile)
 
-                If File.Exists(sNomeFile) Then
-                    Ok = False
-                End If
+                'If File.Exists(sNomeFile) Then
+                '    Ok = False
+                'End If
             End If
 
             If Ok Then
@@ -475,8 +475,15 @@ Public Class frmMain
     Private Function ScaricaPagina(Url As String) As Integer
         If Not mostraFinestra Then
             Me.Hide()
+            frmInfo.Hide()
         Else
             Me.Show()
+            frmInfo.Show()
+            frmInfo.Left = Me.Left - 355
+            frmInfo.Height = 100
+            frmInfo.Width = 353
+            frmInfo.Top = Me.Top + (Me.Height \ 2) - (frmInfo.Height \ 2)
+            ScriveInfos("Lettura: " & Url)
         End If
 
         urlSito = Url
@@ -515,101 +522,52 @@ Public Class frmMain
 
         'Try
         Dim sourcecode As String = ""
-        'Dim sito As String = Url
+        ImmaginiDaScaricare = New List(Of String)
+        CidListDaScaricare = New List(Of String)
 
-        'For i As Integer = 12 To Url.Length
-        '    If Mid(Url, i, 1) = "/" Then
-        '        sito = Mid(Url, 1, i - 1)
-        '        Exit For
-        '    End If
-        'Next
-
-        'If TipoCollegamento = "Proxy" Then
-        '    If Url.ToUpper.Contains("C:\") Or Url.ToUpper.Contains("D:\") Then
-        '        If File.Exists(Url) Then
-        '            FileCopy(Url, sNomeFile)
-        '        End If
-        '    Else
-        '        Dim request As System.Net.HttpWebRequest = System.Net.HttpWebRequest.Create(Url)
-        '        request.Proxy.Credentials = New System.Net.NetworkCredential(Utenza, Password, Dominio)
-        '        Dim response As System.Net.HttpWebResponse = request.GetResponse()
-        '        Application.DoEvents()
-        '        Dim sr As System.IO.StreamReader = New System.IO.StreamReader(response.GetResponseStream())
-        '        Application.DoEvents()
-        '        sourcecode = sr.ReadToEnd()
-        '        sr.Close()
-        '        response.Close()
-        '        request = Nothing
-        '    End If
-        'Else
-        '    If Url.ToUpper.Contains("C:\") Or Url.ToUpper.Contains("D:\") Then
-        '        If File.Exists(Url) Then
-        '            FileCopy(Url, sNomeFile)
-        '        End If
-        '    Else
-        '        ScaricaFileGlobale(Url, sNomeFile, varConnessione, conn)
-        '    End If
-        'End If
-
-        'If File.Exists(sNomeFile) Then
-        '        sourcecode = gf.LeggeFileIntero(sNomeFile)
-
-        'Dim a As Long
-        'Dim Appoggio As String
-        'Dim Inizio As Long
-        'Dim Fine As Long
-        Dim Scaricate As Integer = 0
-        ''Dim Cambia As String
-        ''Dim sourceCodeOriginale As String = sourcecode
-
-        'sourcecode = sourcecode.Replace("%253A", ":")
-        'sourcecode = sourcecode.Replace("%252F", "/")
-        'sourcecode = sourcecode.Replace("&amp;", "&")
-        'sourcecode = sourcecode.Replace("%253F", "?")
-        'sourcecode = sourcecode.Replace("%2526", "?")
-        'sourcecode = sourcecode.Replace("%253D", "=")
-        'sourcecode = sourcecode.Replace("%2B", "+")
-        'sourcecode = sourcecode.Replace("\/", "//")
-        'sourcecode = sourcecode.Replace("&amp;", "&")
-        'sourcecode = sourcecode.Replace("&quot;", Chr(34))
-
-        Dim Immagini As New List(Of String)
+        'Dim Immagini As New List(Of String)
         Dim Cid As New List(Of String)
 
         If ScaricaPaginaChrome(Url, sNomeFile) Then
             If Not BloccaDownloadPagina Then
-                Immagini = PrendeImmagini(Url, sNomeFile)
+                'Immagini = PrendeImmagini(Url, sNomeFile)
                 If Not BloccaDownloadPagina Then
-                    Cid = PrendeCID(sNomeFile)
-
+                    'Dim Imm2 As List(Of String) = PrendeImmagini(Url, sNomeFile2)
                     If Not BloccaDownloadPagina Then
-                        If esegueDiscese Then
-                            If numeroDiscesa < numeroDiscese Then
-                                If File.Exists(sNomeFile) Then
-                                    sourcecode = gf.LeggeFileIntero(sNomeFile)
-                                End If
-
-                                Dim altrePagine As List(Of String) = ControllaSeCiSonoSiti(sourcecode, sitoCompleto2)
-
-                                If altrePagine.Count > 0 Then
-                                    Dim array() As String = altrePagine.ToArray()
-
-                                    If modalitaScan = "INIZIO" Then
-                                        If pagineHtml(numeroDiscesa) Is Nothing Then
-                                            pagineHtml(numeroDiscesa) = {}
+                        'Cid = PrendeCID(sNomeFile)
+                        If Not BloccaDownloadPagina Then
+                            'Dim Cid2 As List(Of String) = PrendeCID(sNomeFile2)
+                            If Not BloccaDownloadPagina Then
+                                If esegueDiscese Then
+                                    If numeroDiscesa < numeroDiscese Then
+                                        If File.Exists(sNomeFile) Then
+                                            sourcecode = gf.LeggeFileIntero(sNomeFile)
                                         End If
 
-                                        Dim vecchioArray() As String = pagineHtml(numeroDiscesa)
-                                        pagineHtml(numeroDiscesa) = vecchioArray.Concat(array).ToArray()
+                                        ScriveInfos("Scan Siti")
+                                        Dim altrePagine As List(Of String) = ControllaSeCiSonoSiti(sourcecode, sitoCompleto2)
 
-                                        modalitaScan = "ALTRO"
-                                    Else
-                                        If pagineHtml(numeroDiscesa + 1) Is Nothing Then
-                                            pagineHtml(numeroDiscesa + 1) = {}
+                                        If altrePagine.Count > 0 Then
+                                            Dim array() As String = altrePagine.ToArray()
+
+                                            If modalitaScan = "INIZIO" Then
+                                                If pagineHtml(numeroDiscesa) Is Nothing Then
+                                                    pagineHtml(numeroDiscesa) = {}
+                                                End If
+
+                                                Dim vecchioArray() As String = pagineHtml(numeroDiscesa)
+                                                pagineHtml(numeroDiscesa) = vecchioArray.Concat(array).ToArray()
+
+                                                modalitaScan = "ALTRO"
+                                            Else
+                                                If pagineHtml(numeroDiscesa + 1) Is Nothing Then
+                                                    pagineHtml(numeroDiscesa + 1) = {}
+                                                End If
+
+                                                Dim vecchioArray() As String = pagineHtml(numeroDiscesa + 1)
+                                                pagineHtml(numeroDiscesa + 1) = vecchioArray.Concat(array).ToArray()
+                                            End If
                                         End If
-
-                                        Dim vecchioArray() As String = pagineHtml(numeroDiscesa + 1)
-                                        pagineHtml(numeroDiscesa + 1) = vecchioArray.Concat(array).ToArray()
                                     End If
                                 End If
                             End If
@@ -619,16 +577,68 @@ Public Class frmMain
             End If
 
             If Not BloccaDownloadPagina Then
-                For Each c As String In Cid
-                    If GestisceImmagineInline(sourcecode, c, sitoCompleto, Me) Then
-                        Scaricate += 1
+                Dim Conta As Integer = 1
+                gf.CreaDirectoryDaPercorso("Links\Scaricate\CIDS\")
+
+                For Each c As String In CidListDaScaricare
+                    Dim Nome As String = "Links\Scaricate\CIDS\" & contatoreCID & ".jpg"
+
+                    ScriveInfos("Download CID: " & Conta & "/" & CidListDaScaricare.Count)
+                    Dim bytes = Convert.FromBase64String(c)
+                    System.IO.File.WriteAllBytes(Nome, bytes)
+                    'Conta += 1
+                    'If GestisceImmagineInline(sourcecode, c, sitoCompleto, Me) Then
+                    '    Scaricate += 1
+                    'End If
+                    If File.Exists(Nome) Then
+                        Dim bt As System.Drawing.Bitmap
+                        bt = CaricaImmagine(Nome)
+                        Application.DoEvents()
+
+                        If bt Is Nothing Then
+                            Try
+                                Kill(Nome)
+                            Catch ex As Exception
+
+                            End Try
+                        Else
+                            Dim w As Integer = bt.Width
+                            Dim h As Integer = bt.Height
+
+                            bt.Dispose()
+                            bt = Nothing
+
+                            Dim Ok As Boolean = True
+
+                            If ScartaPiccole Then
+                                If w < 200 Or h < 200 Then
+                                    Piccole += 1
+
+                                    Ok = False
+                                    Try
+                                        Kill(Nome)
+                                    Catch ex As Exception
+
+                                    End Try
+                                Else
+                                    contatoreCID += 1
+                                End If
+                            Else
+                                contatoreCID += 1
+                            End If
+                        End If
                     End If
                 Next
 
-                For Each i As String In Immagini
+                Conta = 1
+                For Each i As String In ImmaginiDaScaricare
+                    ScriveInfos("Download Immagine: " & Conta & "/" & ImmaginiDaScaricare.Count)
+                    Conta += 1
                     Scaricate += ScaricaFileDaPagina(i, "IMMAGINI", sitoCompleto, sitoCompleto2)
                 Next
             End If
+
+            ScriveInfos("Fine elaborazione pagina")
         End If
 
         NotifyIcon1.Icon = New Icon("Icone\DRAG1PG.ICO")
@@ -686,6 +696,7 @@ Public Class frmMain
         'mnuUscita.Abilita()
 
         StaScaricandoPagina = False
+        frmInfo.Hide()
 
         Return Quanti
     End Function
@@ -1026,6 +1037,9 @@ Public Class frmMain
             mnuImpostazioni.Abilita()
 
             mnuBloccaDownload.ImpostaImmagine("Icone\Menu\Blocca.png", 24)
+
+            frmInfo.Hide()
+            Me.Hide()
         Else
             mnuBloccaDownload.ImpostaImmagine("Icone\errore.png", 24)
 
@@ -1182,6 +1196,7 @@ Public Class frmMain
             numeroDiscesa = 0
             modalitaScan = "INIZIO"
             contatoreCID = 0
+            Scaricate = 0
             immaginiScaricate = New List(Of String)
             Dim Quanti As Integer = ScaricaPagina(Ritorno)
 
